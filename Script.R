@@ -1,5 +1,5 @@
-#install.packages(c("tidyverse","moments","ggpubr", "forcats", "caret"))  #De-comment the code to install
-library("tidyverse"); library(moments); library(ggpubr); library(forcats); library(caret)
+#install.packages(c("tidyverse","moments","ggpubr", "forcats", "caret", "glmnet"))  #De-comment the code to install
+library(tidyverse); library(moments); library(ggpubr); library(forcats); library(caret); library(glmnet)
 
 #PART_01
 #=========================================================
@@ -103,5 +103,61 @@ write.csv(trainData, "trainData.csv", row.names = FALSE)
 
 # Export test set
 write.csv(testData, "testData.csv", row.names = FALSE)
+
+#===================================================
+#PART_02
+
+#a) Select randomly THREE training models
+set.seed(10657323)
+models.list1 <- c("Logistic Ridge Regression",
+                  "Logistic LASSO Regression",
+                  "Logistic Elastic-Net Regression")
+models.list2 <- c("Classification Tree",
+                  "Bagging Tree",
+                  "Random Forest")
+myModels <- c(sample(models.list1,size=1),
+              sample(models.list2,size=2))
+myModels %>% data.frame
+
+#b) 
+# LASSO Regression
+#================================
+lambdas <- 10^seq(-3,3,length=100) #A sequence of lambdas
+
+set.seed(10657323)
+mod.LASSO <- train(APT ~., #Formula
+                   data = trainData, #Training data
+                   method = "glmnet", #Penalised regression modelling
+                   #Set preProcess to c("center", "scale") to standardise data
+                   preProcess = NULL,
+                   #Perform 10-fold CV, 2 times over.
+                   trControl = trainControl("repeatedcv",
+                                            number = 10,
+                                            repeats = 2),
+                   tuneGrid = expand.grid(alpha = 1, #LASSO regression
+                                          lambda = lambdas)
+)
+#Optimal lambda value
+mod.LASSO$bestTune
+
+# Model coefficients
+coef(mod.LASSO$finalModel, mod.LASSO$bestTune$lambda)
+
+# Predict classes of APT on the test data
+pred.class.LASSO <- predict(mod.LASSO,new=testData) 
+
+# Confusion matrix with re-ordering of "Yes" and "No" responses
+cf.LASSO <- table(pred.class.LASSO %>% relevel(ref="Yes"),
+                  testData$APT %>% relevel(ref="Yes"));
+
+prop <- prop.table(cf.LASSO,2); prop %>% round(digit=3) #Proportions by columns
+
+#Summary of confusion matrix
+confusionMatrix(cf.LASSO)
+
+
+
+
+
 
 
