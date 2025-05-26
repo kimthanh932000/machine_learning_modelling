@@ -5,7 +5,21 @@ library("tidyverse"); library(moments); library(ggpubr); library(forcats); libra
 #=========================================================
 #a) Import the master dataset
 df <- read.csv("WACY-COM.csv", na.strings=NA, stringsAsFactors=TRUE)
-# set.seed(10657323)  #Pass student ID as parameter to seed function to make the dataset unique
+
+# A vector contains all categorical variables
+categorical.vars <- c(
+  "Port",
+  "Protocol",
+  "Target.Honeypot.Server.OS",
+  "Source.OS.Detected",
+  "Source.Port.Range",
+  "Source.IP.Type.Detected"
+)
+
+# Convert each categorical variable to a factor 
+for (var in categorical.vars) {
+  df[[var]] <- factor(df[[var]])
+}
 
 #=========================================================
 #b.i) 
@@ -89,3 +103,5 @@ write.csv(trainData, "trainData.csv", row.names = FALSE)
 
 # Export test set
 write.csv(testData, "testData.csv", row.names = FALSE)
+
+
