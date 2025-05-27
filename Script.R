@@ -1,5 +1,15 @@
-#install.packages(c("tidyverse","moments","ggpubr", "forcats", "caret", "glmnet"))  #De-comment the code to install
-library(tidyverse); library(moments); library(ggpubr); library(forcats); library(caret); library(glmnet)
+install.packages(c("tidyverse","moments","ggpubr", "forcats", "caret", "glmnet", "ipred", "ranger", "rpart"))  #De-comment the code to install
+library(tidyverse);
+library(moments);
+library(ggpubr);
+library(forcats);
+library(caret);
+library(glmnet);
+library(ipred);
+library(ranger);
+library(rpart);
+
+student.id <- 10657323
 
 #PART_01
 #=========================================================
@@ -85,7 +95,7 @@ WACY_COM_cleaned <- na.omit(df)
 
 #===================================================
 #c) Partition the dataset into train and test sets using 30/70 split
-set.seed(10657323)
+set.seed(student.id)
 
 # Step 1: Get row numbers for the training data
 trainRowNumbers <- createDataPartition(WACY_COM_cleaned$APT, #The outcome variable
@@ -106,9 +116,9 @@ write.csv(testData, "testData.csv", row.names = FALSE)
 
 #===================================================
 #PART_02
-
+#==================================================
 #a) Select randomly THREE training models
-set.seed(10657323)
+set.seed(student.id)
 models.list1 <- c("Logistic Ridge Regression",
                   "Logistic LASSO Regression",
                   "Logistic Elastic-Net Regression")
@@ -119,12 +129,11 @@ myModels <- c(sample(models.list1,size=1),
               sample(models.list2,size=2))
 myModels %>% data.frame
 
-#b) 
-# LASSO Regression
-#================================
+#=======================================
+#b) LASSO Regression
 lambdas <- 10^seq(-3,3,length=100) #A sequence of lambdas
 
-set.seed(10657323)
+set.seed(student.id)
 mod.LASSO <- train(APT ~., #Formula
                    data = trainData, #Training data
                    method = "glmnet", #Penalised regression modelling
@@ -155,9 +164,58 @@ prop <- prop.table(cf.LASSO,2); prop %>% round(digit=3) #Proportions by columns
 #Summary of confusion matrix
 confusionMatrix(cf.LASSO)
 
+#===================================================
+#b) Bagging
+
+#Intialise the hyperparamter search grid
+grid.bc <- expand.grid(nbagg=seq(15,35,10), #A sequence of nbagg values
+                       cp=seq(0.0055,0.0145,0.0045), #A sequence of cp values
+                       minsplit=seq(10,30,10), #A sequence of minsplits values
+                       #Initialise columns to store the OOB misclassification rate
+                       OOB.misclass=NA,
+                       #Initialise columns to store sensitivity, specificity and
+                       #accuracy of bagging at each run.
+                       test.sens=NA,
+                       test.spec=NA,
+                       test.acc=NA)
 
 
+# Display the search grid
+View(grid.bc)
+
+for (I in 1:nrow(grid.bc))
+{
+  set.seed(student.id)
+  #Perform bagging
+  btree.bc <- bagging(APT~.,
+                      data=trainData,
+                      nbagg=grid.bc$nbagg[I],
+                      coob=TRUE,
+                      control=rpart.control(cp=grid.bc$cp[I],
+                                            minsplit=grid.bc$minsplit[I]));
+  #OOB misclassification rate
+  grid.bc$OOB.misclass[I] <- btree.bc$err*100
+  #Summary of predictions on test set
+  test.pred.bc <- predict(btree.bc,newdata=testData,type="class"); #Class prediction
+  #Confusion matrix
+  test.cf.bc <- confusionMatrix(test.pred.bc %>% relevel(ref="Yes"),
+                                testData$APT %>% relevel(ref="Yes"))
+  prop.cf.bc <- test.cf.bc$table %>% prop.table(2)
+  grid.bc$test.sens[I] <- prop.cf.bc[1,1]*100 #Sensitivity
+  grid.bc$test.spec[I] <- prop.cf.bc[2,2]*100 #Specificity
+  grid.bc$test.acc[I] <- test.cf.bc$overall[1]*100 #Accuracy
+  
+  cat("Iteration", I, 
+      "- nbagg:", grid.bc$nbagg[I], 
+      "- cp:", grid.bc$cp[I], 
+      "- minsplit:", grid.bc$minsplit[I], "\n",
+      "OOB Misclass:", round(grid.bc$OOB.misclass[I], 2), "%",
+      "- Accuracy:", round(grid.bc$test.acc[I], 2), "%",
+      "- Sensitivity:", round(grid.bc$test.sens[I], 2), "%",
+      "- Specificity:", round(grid.bc$test.spec[I], 2), "%\n\n")
+}
 
 
-
+#Sort the results by the OOB misclassification rate and display them.
+grid.bc[order(grid.bc$OOB.misclass,decreasing=FALSE)[1:10],] %>% round(2)
 
