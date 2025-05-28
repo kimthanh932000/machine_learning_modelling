@@ -168,9 +168,9 @@ confusionMatrix(cf.LASSO)
 #b) Bagging
 
 #Intialise the hyperparamter search grid
-grid.bc <- expand.grid(nbagg=seq(15,35,10), #A sequence of nbagg values
-                       cp=seq(0.0055,0.0145,0.0045), #A sequence of cp values
-                       minsplit=seq(10,30,10), #A sequence of minsplits values
+grid.bc <- expand.grid(nbagg=seq(15,35,10), #A sequence of nbagg values   default: 15,25,35
+                       cp=seq(0.0055,0.0145,0.0045), #A sequence of cp values   default: 0.01
+                       minsplit=seq(10,30,10), #A sequence of minsplits values  default: 20
                        #Initialise columns to store the OOB misclassification rate
                        OOB.misclass=NA,
                        #Initialise columns to store sensitivity, specificity and
@@ -219,3 +219,50 @@ for (I in 1:nrow(grid.bc))
 #Sort the results by the OOB misclassification rate and display them.
 grid.bc[order(grid.bc$OOB.misclass,decreasing=FALSE)[1:10],] %>% round(2)
 
+#=============================================================
+#b) Random Forest
+
+#Create a search grid for the tuning parameters
+grid.rf <- expand.grid(num.trees = c(400,500,600), #Number of trees
+                          mtry = c(1,4,7), #Default is floor(14/3)
+                          min.node.size = seq(1,9,4), #Tree complexity
+                          OOB.misclass = NA, #Column to store the OOB RMSE
+                          test.sens = NA, #Column to store the test Sensitivity
+                          test.spec = NA, #Column to store the test Specificity
+                          test.acc = NA) #Column to store the test Accuracy
+
+#View the search grid
+View(grid.rf)
+
+for (I in 1:nrow(grid.rf))
+{
+  rf <- ranger(APT~.,
+                  data=trainData,
+                  num.trees=grid.rf$num.trees[I],
+                  mtry=grid.rf$mtry[I],
+                  min.node.size=grid.rf$min.node.size[I],
+                  seed=student.id,
+                  respect.unordered.factors="order")
+  grid.rf$OOB.misclass[I] <- rf$prediction.error %>% round(5)*100
+  #Test classification
+  test.pred <- predict(rf,data=testData)$predictions; #Predicted classes
+  #Summary of confusion matrix
+  test.cf <- confusionMatrix(test.pred %>% relevel(ref="Yes"),
+                                testData$APT %>% relevel(ref="Yes"));
+  prop.cf <- test.cf$table %>% prop.table(2)
+  grid.rf$test.sens[I] <- prop.cf[1,1] %>% round(5)*100 #Sensitivity
+  grid.rf$test.spec[I] <- prop.cf[2,2] %>% round(5)*100 #Specificity
+  grid.rf$test.acc[I] <- test.cf$overall[1] %>% round(5)*100 #Accuracy
+  
+  cat("Iteration", I, "\n",
+      "- num.trees:     ", grid.rf$num.trees[I], "\n",
+      "- mtry:          ", grid.rf$mtry[I], "\n",
+      "- min.node.size: ", grid.rf$min.node.size[I], "\n",
+      "- OOB Misclass:  ", round(grid.rf$OOB.misclass[I], 2), "%\n",
+      "- Accuracy:      ", round(grid.rf$test.acc[I], 2), "%\n",
+      "- Sensitivity:   ", round(grid.rf$test.sens[I], 2), "%\n",
+      "- Specificity:   ", round(grid.rf$test.spec[I], 2), "%\n\n"
+  )
+}
+#Sort the results by the OOB misclassification error and view the top 10 results
+grid.rf[order(grid.rf$OOB.misclass,decreasing=FALSE)[1:10],]
