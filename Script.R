@@ -23,7 +23,8 @@ categorical.vars <- c(
   "Target.Honeypot.Server.OS",
   "Source.OS.Detected",
   "Source.Port.Range",
-  "Source.IP.Type.Detected"
+  "Source.IP.Type.Detected",
+  "APT"
 )
 
 # Convert each categorical variable to a factor 
@@ -109,10 +110,10 @@ trainData <- WACY_COM_cleaned[trainRowNumbers,]
 testData <- WACY_COM_cleaned[-trainRowNumbers,]
 
 # Export train set
-write.csv(trainData, "trainData.csv", row.names = FALSE)
+#write.csv(trainData, "trainData.csv", row.names = FALSE)
 
 # Export test set
-write.csv(testData, "testData.csv", row.names = FALSE)
+#write.csv(testData, "testData.csv", row.names = FALSE)
 
 #===================================================
 #PART_02
@@ -131,7 +132,7 @@ myModels %>% data.frame
 
 #=======================================
 #b) LASSO Regression
-lambdas <- 10^seq(-3,3,length=100) #A sequence of lambdas
+lambdas <- 10^seq(-3,3,length=200) #A sequence of lambdas
 
 set.seed(student.id)
 mod.LASSO <- train(APT ~., #Formula
@@ -165,7 +166,7 @@ prop <- prop.table(cf.LASSO,2); prop %>% round(digit=3) #Proportions by columns
 confusionMatrix(cf.LASSO)
 
 #===================================================
-#b) Bagging
+#b) Bagging Tree
 
 #Intialise the hyperparamter search grid
 grid.bc <- expand.grid(nbagg=seq(15,35,10), #A sequence of nbagg values   default: 15,25,35
@@ -217,7 +218,7 @@ for (I in 1:nrow(grid.bc))
 
 
 #Sort the results by the OOB misclassification rate and display them.
-grid.bc[order(grid.bc$OOB.misclass,decreasing=FALSE)[1:10],] %>% round(2)
+grid.bc[order(grid.bc$OOB.misclass,decreasing=FALSE)[1:10],] %>% round(3)
 
 #=============================================================
 #b) Random Forest
@@ -265,4 +266,4 @@ for (I in 1:nrow(grid.rf))
   )
 }
 #Sort the results by the OOB misclassification error and view the top 10 results
-grid.rf[order(grid.rf$OOB.misclass,decreasing=FALSE)[1:10],]
+grid.rf[order(grid.rf$OOB.misclass,decreasing=FALSE)[1:10],] %>% round(3)
