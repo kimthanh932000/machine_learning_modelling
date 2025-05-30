@@ -249,9 +249,17 @@ grid.rf <- expand.grid(num.trees = c(400,500,600), #Number of trees
                           mtry = c(1,4,7), #Default is floor(14/3)
                           min.node.size = seq(1,9,4), #Tree complexity
                           OOB.misclass = NA, #Column to store the OOB RMSE
-                          test.sens = NA, #Column to store the test Sensitivity
-                          test.spec = NA, #Column to store the test Specificity
-                          test.acc = NA) #Column to store the test Accuracy
+                         #Initialise columns to store sensitivity, specificity and
+                         #accuracy of RF at each run.
+                          test.sens_freq=NA,
+                          test.FP_freq=NA,
+                          test.FN_freq=NA,
+                          test.spec_freq=NA,
+                          test.sens_prop=NA,
+                          test.FP_prop=NA,
+                          test.FN_prop=NA,
+                          test.spec_prop=NA,
+                          test.acc=NA)
 
 #View the search grid
 View(grid.rf)
@@ -272,18 +280,37 @@ for (I in 1:nrow(grid.rf))
   test.cf <- confusionMatrix(test.pred %>% relevel(ref="Yes"),
                                 testData$APT %>% relevel(ref="Yes"));
   prop.cf <- test.cf$table %>% prop.table(2)
-  grid.rf$test.sens[I] <- prop.cf[1,1] %>% round(5)*100 #Sensitivity
-  grid.rf$test.spec[I] <- prop.cf[2,2] %>% round(5)*100 #Specificity
+  # grid.rf$test.sens[I] <- prop.cf[1,1] %>% round(5)*100 #Sensitivity
+  # grid.rf$test.spec[I] <- prop.cf[2,2] %>% round(5)*100 #Specificity
+  
+  prop.cf <- test.cf$table %>% prop.table(2)
+  grid.rf$test.sens_prop[I] <- prop.cf[1,1] %>% round(5)*100 #Sensitivity
+  grid.rf$test.FP_prop[I] <- prop.cf[1,2] %>% round(5)*100 #False Positives
+  grid.rf$test.FN_prop[I] <- prop.cf[2,1] %>% round(5)*100 #False Negatives
+  grid.rf$test.spec_prop[I] <- prop.cf[2,2] %>% round(5)*100 #Specificity
+  
+  freq.cf <- test.cf$table
+  grid.rf$test.sens_freq[I] <- freq.cf[1,1] #Sensitivity
+  grid.rf$test.FP_freq[I] <- freq.cf[1,2] #False Positives
+  grid.rf$test.FN_freq[I] <- freq.cf[2,1] #False Negatives
+  grid.rf$test.spec_freq[I] <- freq.cf[2,2] #Specificity
+  
   grid.rf$test.acc[I] <- test.cf$overall[1] %>% round(5)*100 #Accuracy
   
-  cat("Iteration", I, "\n",
-      "- num.trees:     ", grid.rf$num.trees[I], "\n",
-      "- mtry:          ", grid.rf$mtry[I], "\n",
-      "- min.node.size: ", grid.rf$min.node.size[I], "\n",
-      "- OOB Misclass:  ", round(grid.rf$OOB.misclass[I], 2), "%\n",
-      "- Accuracy:      ", round(grid.rf$test.acc[I], 2), "%\n",
-      "- Sensitivity:   ", round(grid.rf$test.sens[I], 2), "%\n",
-      "- Specificity:   ", round(grid.rf$test.spec[I], 2), "%\n\n"
+  cat("\nIteration", I, "\n",
+      "- nbagg:", grid.rf$nbagg[I], "\n",
+      "- cp:", grid.rf$cp[I], "\n",
+      "- minsplit:", grid.rf$minsplit[I], "\n",
+      "OOB Misclass:", round(grid.rf$OOB.misclass[I], 2), "%\n",
+      "Accuracy:", round(grid.rf$test.acc[I], 2), "%\n",
+      "True Positive (Freq):", grid.rf$test.sens_freq[I], 
+      "(", round(grid.rf$test.sens_prop[I], 2), "%)\n",
+      "False Positive (Freq):", grid.rf$test.FP_freq[I], 
+      "(", round(grid.rf$test.FP_prop[I], 2), "%)\n",
+      "False Negative (Freq):", grid.rf$test.FN_freq[I], 
+      "(", round(grid.rf$test.FN_prop[I], 2), "%)\n",
+      "True Negative (Freq):", grid.rf$test.spec_freq[I], 
+      "(", round(grid.rf$test.spec_prop[I], 2), "%)\n"
   )
 }
 #Sort the results by the OOB misclassification error and view the top 10 results
