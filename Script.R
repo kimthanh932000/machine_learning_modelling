@@ -176,8 +176,14 @@ grid.bc <- expand.grid(nbagg=seq(15,35,10), #A sequence of nbagg values   defaul
                        OOB.misclass=NA,
                        #Initialise columns to store sensitivity, specificity and
                        #accuracy of bagging at each run.
-                       test.sens=NA,
-                       test.spec=NA,
+                       test.sens_freq=NA,
+                       test.FP_freq=NA,
+                       test.FN_freq=NA,
+                       test.spec_freq=NA,
+                       test.sens_prop=NA,
+                       test.FP_prop=NA,
+                       test.FN_prop=NA,
+                       test.spec_prop=NA,
                        test.acc=NA)
 
 
@@ -202,20 +208,35 @@ for (I in 1:nrow(grid.bc))
   test.cf.bc <- confusionMatrix(test.pred.bc %>% relevel(ref="Yes"),
                                 testData$APT %>% relevel(ref="Yes"))
   prop.cf.bc <- test.cf.bc$table %>% prop.table(2)
-  grid.bc$test.sens[I] <- prop.cf.bc[1,1]*100 #Sensitivity
-  grid.bc$test.spec[I] <- prop.cf.bc[2,2]*100 #Specificity
+  grid.bc$test.sens_prop[I] <- prop.cf.bc[1,1]*100 #Sensitivity
+  grid.bc$test.FP_prop[I] <- prop.cf.bc[1,2]*100 #False Positives
+  grid.bc$test.FN_prop[I] <- prop.cf.bc[2,1]*100 #False Negatives
+  grid.bc$test.spec_prop[I] <- prop.cf.bc[2,2]*100 #Specificity
+  
+  freq.cf.bc <- test.cf.bc$table
+  grid.bc$test.sens_freq[I] <- freq.cf.bc[1,1] #Sensitivity
+  grid.bc$test.FP_freq[I] <- freq.cf.bc[1,2] #False Positives
+  grid.bc$test.FN_freq[I] <- freq.cf.bc[2,1] #False Negatives
+  grid.bc$test.spec_freq[I] <- freq.cf.bc[2,2] #Specificity
+  
   grid.bc$test.acc[I] <- test.cf.bc$overall[1]*100 #Accuracy
   
-  cat("Iteration", I, 
-      "- nbagg:", grid.bc$nbagg[I], 
-      "- cp:", grid.bc$cp[I], 
+  cat("\nIteration", I, "\n",
+      "- nbagg:", grid.bc$nbagg[I], "\n",
+      "- cp:", grid.bc$cp[I], "\n",
       "- minsplit:", grid.bc$minsplit[I], "\n",
-      "OOB Misclass:", round(grid.bc$OOB.misclass[I], 2), "%",
-      "- Accuracy:", round(grid.bc$test.acc[I], 2), "%",
-      "- Sensitivity:", round(grid.bc$test.sens[I], 2), "%",
-      "- Specificity:", round(grid.bc$test.spec[I], 2), "%\n\n")
+      "OOB Misclass:", round(grid.bc$OOB.misclass[I], 2), "%\n",
+      "Accuracy:", round(grid.bc$test.acc[I], 2), "%\n",
+      "True Positive (Freq):", grid.bc$test.sens_freq[I], 
+      "(", round(grid.bc$test.sens_prop[I], 2), "%)\n",
+      "False Positive (Freq):", grid.bc$test.FP_freq[I], 
+      "(", round(grid.bc$test.FP_prop[I], 2), "%)\n",
+      "False Negative (Freq):", grid.bc$test.FN_freq[I], 
+      "(", round(grid.bc$test.FN_prop[I], 2), "%)\n",
+      "True Negative (Freq):", grid.bc$test.spec_freq[I], 
+      "(", round(grid.bc$test.spec_prop[I], 2), "%)\n"
+  )
 }
-
 
 #Sort the results by the OOB misclassification rate and display them.
 grid.bc[order(grid.bc$OOB.misclass,decreasing=FALSE)[1:10],] %>% round(3)
